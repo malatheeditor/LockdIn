@@ -194,6 +194,18 @@ function Dashboard({ user, onLogout }) {
     }
   }, [userName]);
 
+  const validPages = ['dashboard', 'timetable', 'attendance', 'assignments', 'analytics'];
+  const [page, setPage] = useState(() => {
+    const fromHash = window.location.hash.replace('#', '');
+    return validPages.includes(fromHash) ? fromHash : 'dashboard';
+  });
+
+  function goTo(key) {
+    setPage(key);
+    window.history.replaceState(null, '', `#${key}`);
+    window.scrollTo(0, 0);
+  }
+
   const [cloudReady, setCloudReady] = useState(false);
   const [syncStatus, setSyncStatus] = useState('Loading your data...');
 
@@ -532,21 +544,25 @@ function Dashboard({ user, onLogout }) {
         </a>
 
         <nav className="navigation">
-          <a className="nav-link active" href="#dashboard">
-            Dashboard
-          </a>
-          <a className="nav-link" href="#timetable">
-            Timetable
-          </a>
-          <a className="nav-link" href="#attendance">
-            Attendance
-          </a>
-          <a className="nav-link" href="#assignments">
-            Assignments
-          </a>
-          <a className="nav-link" href="#analytics">
-            Analytics
-          </a>
+          {[
+            ['dashboard', 'Dashboard'],
+            ['timetable', 'Timetable'],
+            ['attendance', 'Attendance'],
+            ['assignments', 'Assignments'],
+            ['analytics', 'Analytics'],
+          ].map(([key, label]) => (
+            <a
+              className={`nav-link${page === key ? ' active' : ''}`}
+              href={`#${key}`}
+              key={key}
+              onClick={(event) => {
+                event.preventDefault();
+                goTo(key);
+              }}
+            >
+              {label}
+            </a>
+          ))}
         </nav>
 
         <p className="sidebar-note">
@@ -588,6 +604,8 @@ function Dashboard({ user, onLogout }) {
           </div>
         </header>
 
+        {page === 'dashboard' && (
+          <>
         <section className="stats-grid">
           <article className="stat-card">
             <p>Attendance</p>
@@ -614,7 +632,75 @@ function Dashboard({ user, onLogout }) {
           </article>
         </section>
 
-        <section className="content-grid">
+            <section className="content-grid">
+              <article className="panel">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">YOUR SCHEDULE</p>
+                    <h2>Today's timetable</h2>
+                  </div>
+                </div>
+
+                <div className="class-list">
+                  {sortedClasses.length === 0 && (
+                    <p className="muted">No classes yet. Add some in Timetable.</p>
+                  )}
+
+                  {sortedClasses.slice(0, 4).map((item) => (
+                    <div className="class-row" key={item.id}>
+                      <span className="status-dot" />
+                      <div className="class-info">
+                        <strong>{item.subject}</strong>
+                        <span className="muted">{formatTime(item.time)}</span>
+                      </div>
+                      <span className="room muted">{item.room}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <button type="button" onClick={() => goTo('timetable')}>
+                  Manage timetable
+                </button>
+              </article>
+
+              <article className="panel">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">STAY AHEAD</p>
+                    <h2>Next deadlines</h2>
+                  </div>
+                </div>
+
+                <div className="assignment-list">
+                  {sortedAssignments.filter((item) => !item.completed).length === 0 && (
+                    <p className="muted">Nothing pending. Nice work!</p>
+                  )}
+
+                  {sortedAssignments
+                    .filter((item) => !item.completed)
+                    .slice(0, 3)
+                    .map((item) => (
+                      <div className="assignment-row" key={item.id}>
+                        <div>
+                          <strong>{item.title}</strong>
+                          <p className="muted">{item.due}</p>
+                        </div>
+                        <span className={`priority ${item.priority.toLowerCase()}`}>
+                          {item.priority}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+
+                <button type="button" onClick={() => goTo('assignments')}>
+                  Manage assignments
+                </button>
+              </article>
+            </section>
+          </>
+        )}
+
+        {page === 'timetable' && (
           <article className="panel" id="timetable">
             <div className="panel-heading">
               <div>
@@ -682,7 +768,9 @@ function Dashboard({ user, onLogout }) {
               ))}
             </div>
           </article>
+        )}
 
+        {page === 'assignments' && (
           <article className="panel" id="assignments">
             <div className="panel-heading">
               <div>
@@ -778,13 +866,14 @@ function Dashboard({ user, onLogout }) {
               })}
             </div>
           </article>
-        </section>
+        )}
 
-        <section className="panel analytics-panel" id="analytics">
+        {page === 'attendance' && (
+        <section className="panel analytics-panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">YOUR PROGRESS</p>
-              <h2>Subject-wise attendance</h2>
+              <p className="eyebrow">TRACK YOUR CLASSES</p>
+              <h2>Mark attendance</h2>
             </div>
           </div>
 
@@ -870,6 +959,23 @@ function Dashboard({ user, onLogout }) {
               )}
             </div>
           )}
+        </section>
+        )}
+
+        {page === 'analytics' && (
+          <section className="panel analytics-panel" id="analytics">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">YOUR PROGRESS</p>
+                <h2>Subject-wise attendance</h2>
+              </div>
+            </div>
+
+            <p className="muted">
+              {overallAttendance === null
+                ? 'No attendance recorded yet. Mark your first class in Attendance.'
+                : `Overall attendance: ${overallAttendance}% (${totalPresent} of ${totalClasses} classes attended)`}
+            </p>
 
           <h3 className="subject-grid-heading">All subjects</h3>
 
@@ -941,7 +1047,8 @@ function Dashboard({ user, onLogout }) {
             Attendance percentages are calculated from the records you
             enter.
           </p>
-        </section>
+          </section>
+        )}
       </section>
     </main>
   );
