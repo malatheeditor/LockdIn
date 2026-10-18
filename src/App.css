@@ -911,3 +911,33 @@
   word-break: break-all;
   margin-bottom: 8px;
 }
+.auth-card input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font-size: 1rem;
+}
+
+.auth-card h1 {
+  font-size: 1.6rem;
+  margin: 8px 0 0;
+}
+
+.auth-card button[type="submit"] {
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: #c6ff3d;
+  color: #0a0a0f;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.auth-card button[type="submit"]:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
