@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
+import { supabase } from './supabaseClient';
 import './App.css';
 
 function formatTime(value) {
@@ -22,10 +23,14 @@ function getGreeting() {
   return 'Good evening';
 }
 
-function App() {
+function Dashboard({ user, onLogout }) {
+  const storageKey = (name) => `lockdin-${name}-${user.id}`;
+  const defaultName =
+    (user.user_metadata && user.user_metadata.name) || 'student';
+
   const [subjects, setSubjects] = useState(() => {
     try {
-      const savedSubjects = localStorage.getItem('lockdin-subjects');
+      const savedSubjects = localStorage.getItem(storageKey('subjects'));
 
       if (savedSubjects) {
         const parsedSubjects = JSON.parse(savedSubjects);
@@ -53,7 +58,7 @@ function App() {
 
   const [assignments, setAssignments] = useState(() => {
     try {
-      const savedAssignments = localStorage.getItem('lockdin-assignments');
+      const savedAssignments = localStorage.getItem(storageKey('assignments'));
 
       if (savedAssignments) {
         return JSON.parse(savedAssignments);
@@ -89,7 +94,7 @@ function App() {
 
   const [classes, setClasses] = useState(() => {
     try {
-      const savedClasses = localStorage.getItem('lockdin-classes');
+      const savedClasses = localStorage.getItem(storageKey('classes'));
 
       if (savedClasses) {
         const parsedClasses = JSON.parse(savedClasses);
@@ -119,9 +124,9 @@ function App() {
   const [newClassRoom, setNewClassRoom] = useState('');
   const [userName, setUserName] = useState(() => {
     try {
-      return localStorage.getItem('lockdin-name') || 'student';
+      return localStorage.getItem(storageKey('name')) || defaultName;
     } catch (error) {
-      return 'student';
+      return defaultName;
     }
   });
 
@@ -131,7 +136,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('lockdin-subjects', JSON.stringify(subjects));
+      localStorage.setItem(storageKey('subjects'), JSON.stringify(subjects));
     } catch (error) {
       console.error('Could not save subjects:', error);
     }
@@ -140,7 +145,7 @@ function App() {
   useEffect(() => {
     try {
       localStorage.setItem(
-        'lockdin-assignments',
+        storageKey('assignments'),
         JSON.stringify(assignments)
       );
     } catch (error) {
@@ -150,7 +155,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('lockdin-classes', JSON.stringify(classes));
+      localStorage.setItem(storageKey('classes'), JSON.stringify(classes));
     } catch (error) {
       console.error('Could not save classes:', error);
     }
@@ -158,7 +163,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('lockdin-name', userName);
+      localStorage.setItem(storageKey('name'), userName);
     } catch (error) {
       console.error('Could not save name:', error);
     }
@@ -410,7 +415,6 @@ function App() {
 
   return (
     <main className="app-shell">
-      <Analytics />
       <aside className="sidebar">
         <a className="brand" href="#dashboard">
           <span className="brand-lock">L</span>
@@ -443,6 +447,12 @@ function App() {
           every day.
           <span className="lime"> Big results.</span>
         </p>
+        <div className="account-box">
+          <p className="muted account-email">{user.email}</p>
+          <button type="button" onClick={onLogout}>
+            Log out
+          </button>
+        </div>
       </aside>
 
       <section className="main-content" id="dashboard">
@@ -825,6 +835,181 @@ function App() {
         </section>
       </section>
     </main>
+  );
+}
+
+function AuthScreen() {
+  const [mode, setMode] = useState('login');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setMessage('');
+
+    if (mode === 'signup' && !name.trim()) {
+      setMessage('Please enter your name.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setMessage('Password must be at least 6 characters.');
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      if (mode === 'signup') {
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: { data: { name: name.trim() } },
+        });
+
+        if (error) throw error;
+
+        if (!data.session) {
+          setMessage(
+            'Account created! Check your email to confirm, then log in.'
+          );
+          setMode('login');
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+        if (error) throw error;
+      }
+    } catch (error) {
+      setMessage(error.message || 'Something went wrong. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="auth-shell">
+      <form className="auth-card" onSubmit={handleSubmit}>
+        <a className="brand" href="#top">
+          <span className="brand-lock">L</span>
+          <span>
+            Lockd<span className="lime">In</span>
+          </span>
+        </a>
+
+        <h1>{mode === 'login' ? 'Welcome back' : 'Create your account'}</h1>
+        <p className="muted">
+          {mode === 'login'
+            ? 'Log in to see your dashboard.'
+            : 'Track attendance and deadlines in one place.'}
+        </p>
+
+        {mode === 'signup' && (
+          <input
+            type="text"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Your name"
+            aria-label="Your name"
+          />
+        )}
+
+        <input
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="Email"
+          aria-label="Email"
+          required
+        />
+
+        <input
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          placeholder="Password (6+ characters)"
+          aria-label="Password"
+          required
+        />
+
+        {message && <p className="auth-message">{message}</p>}
+
+        <button type="submit" disabled={busy}>
+          {busy
+            ? 'Please wait...'
+            : mode === 'login'
+              ? 'Log in'
+              : 'Sign up'}
+        </button>
+
+        <p className="muted auth-switch">
+          {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => {
+              setMode(mode === 'login' ? 'signup' : 'login');
+              setMessage('');
+            }}
+          >
+            {mode === 'login' ? 'Sign up' : 'Log in'}
+          </button>
+        </p>
+      </form>
+    </main>
+  );
+}
+
+function App() {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setLoading(false);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, newSession) => {
+        setSession(newSession);
+      }
+    );
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+  }
+
+  if (loading) {
+    return (
+      <main className="auth-shell">
+        <p className="muted">Loading...</p>
+      </main>
+    );
+  }
+
+  return (
+    <>
+      <Analytics />
+      {session ? (
+        <Dashboard
+          key={session.user.id}
+          user={session.user}
+          onLogout={handleLogout}
+        />
+      ) : (
+        <AuthScreen />
+      )}
+    </>
   );
 }
 
