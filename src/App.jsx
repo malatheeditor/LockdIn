@@ -172,6 +172,84 @@ function App() {
     }
   }
 
+  function exportData() {
+    const data = {
+      app: 'LockdIn',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      subjects,
+      assignments,
+      classes,
+      userName,
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = `lockdin-backup-${new Date().toLocaleDateString('en-CA')}.json`;
+    link.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  function importData(event) {
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+
+        if (
+          !Array.isArray(data.subjects) ||
+          !Array.isArray(data.assignments) ||
+          !Array.isArray(data.classes)
+        ) {
+          throw new Error('Invalid backup file');
+        }
+
+        if (
+          !window.confirm(
+            'This will replace your current data with the backup. Continue?'
+          )
+        ) {
+          return;
+        }
+
+        setSubjects(
+          data.subjects.map((subject) => ({
+            ...subject,
+            attendance: Array.isArray(subject.attendance)
+              ? subject.attendance
+              : [],
+          }))
+        );
+        setAssignments(data.assignments);
+        setClasses(data.classes);
+
+        if (typeof data.userName === 'string' && data.userName.trim()) {
+          setUserName(data.userName.trim());
+        }
+
+        setSelectedSubjectId(
+          data.subjects.length > 0 ? data.subjects[0].id : 1
+        );
+      } catch (error) {
+        alert('That file is not a valid LockdIn backup.');
+      }
+    };
+
+    reader.readAsText(file);
+    event.target.value = '';
+  }
+
   function addClass() {
     if (!newClassSubject || !newClassTime) return;
 
@@ -715,6 +793,29 @@ function App() {
                 </div>
               );
             })}
+          </div>
+
+          <h3 className="subject-grid-heading">Backup your data</h3>
+
+          <p className="muted">
+            Download your data as a file, or restore it on another device
+            or browser.
+          </p>
+
+          <div className="backup-actions">
+            <button type="button" onClick={exportData}>
+              Export data
+            </button>
+
+            <label className="file-button">
+              Import data
+              <input
+                type="file"
+                accept="application/json,.json"
+                hidden
+                onChange={importData}
+              />
+            </label>
           </div>
 
           <p className="muted sample-note">
