@@ -169,6 +169,92 @@ function Dashboard({ user, onLogout }) {
     }
   }, [userName]);
 
+  const [cloudReady, setCloudReady] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('Loading your data...');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFromCloud() {
+      try {
+        const { data, error } = await supabase
+          .from('user_data')
+          .select('data')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (cancelled) return;
+
+        if (data && data.data) {
+          const cloud = data.data;
+
+          if (Array.isArray(cloud.subjects)) {
+            setSubjects(
+              cloud.subjects.map((subject) => ({
+                ...subject,
+                attendance: Array.isArray(subject.attendance)
+                  ? subject.attendance
+                  : [],
+              }))
+            );
+
+            if (cloud.subjects.length > 0) {
+              setSelectedSubjectId(cloud.subjects[0].id);
+            }
+          }
+
+          if (Array.isArray(cloud.assignments)) {
+            setAssignments(cloud.assignments);
+          }
+
+          if (Array.isArray(cloud.classes)) {
+            setClasses(cloud.classes);
+          }
+
+          if (typeof cloud.userName === 'string' && cloud.userName) {
+            setUserName(cloud.userName);
+          }
+        }
+
+        setSyncStatus('Synced');
+        setCloudReady(true);
+      } catch (error) {
+        console.error('Could not load cloud data:', error);
+
+        if (!cancelled) {
+          setSyncStatus('Offline: saved on this device only');
+        }
+      }
+    }
+
+    loadFromCloud();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id]);
+
+  useEffect(() => {
+    if (!cloudReady) return;
+
+    setSyncStatus('Saving...');
+
+    const timer = setTimeout(async () => {
+      const { error } = await supabase.from('user_data').upsert({
+        user_id: user.id,
+        data: { subjects, assignments, classes, userName },
+        updated_at: new Date().toISOString(),
+      });
+
+      setSyncStatus(
+        error ? 'Could not sync: saved on this device' : 'Synced'
+      );
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [cloudReady, subjects, assignments, classes, userName, user.id]);
+
   function changeName() {
     const entered = window.prompt('What should I call you?', userName);
 
@@ -449,6 +535,7 @@ function Dashboard({ user, onLogout }) {
         </p>
         <div className="account-box">
           <p className="muted account-email">{user.email}</p>
+          <p className="muted account-email">{syncStatus}</p>
           <button type="button" onClick={onLogout}>
             Log out
           </button>
@@ -867,7 +954,10 @@ function AuthScreen() {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { data: { name: name.trim() } },
+          options: {
+            data: { name: name.trim() },
+            emailRedirectTo: window.location.origin,
+          },
         });
 
         if (error) throw error;
