@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import './App.css';
 
 function formatTime(value) {
@@ -331,6 +332,7 @@ function App() {
 
   return (
     <main className="app-shell">
+      <Analytics />
       <aside className="sidebar">
         <a className="brand" href="#dashboard">
           <span className="brand-lock">L</span>
