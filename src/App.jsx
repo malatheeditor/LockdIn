@@ -546,10 +546,10 @@ function Dashboard({ user, onLogout }) {
         <nav className="navigation">
           {[
             ['dashboard', 'Dashboard'],
-            ['timetable', 'Timetable'],
             ['attendance', 'Attendance'],
-            ['assignments', 'Assignments'],
             ['analytics', 'Analytics'],
+            ['timetable', 'Timetable'],
+            ['assignments', 'Assignments'],
           ].map(([key, label]) => (
             <a
               className={`nav-link${page === key ? ' active' : ''}`}
